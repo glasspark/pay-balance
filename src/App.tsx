@@ -2,7 +2,7 @@
 import './App.css'
 import closeIcon from './assets/close.svg'
 import addIcon from './assets/add.svg'
-
+import removeIcon from './assets/remove.svg'
 
 const presetAmounts = [10, 50, 100, 500, 1000, 5000, 10000, 50000]
 
@@ -25,6 +25,9 @@ type ExpenseItem = {
     source: string
     amount: number
 }
+
+type Settlement = { from: string; to: string; amount: number }
+
 
 function App() {
 
@@ -112,6 +115,69 @@ function App() {
             .reduce((sum, item) => sum + item.amount, 0)
     }
 
+    // Step3 정산 결과 계산:
+    // 1) 개인별 지출 합산 -> 2) 1인당 부담액 계산 -> 3) 송금 매칭 목록 생성
+    const buildSettlements = (): Settlement[] => {
+        if (participants.length === 0) return []
+
+        // participantId 기준으로 실제 지출 총액을 누적한다.
+        const spentByParticipantId = expenseList.reduce<Record<string, number>>((acc, item) => {
+            acc[item.participantId] = (acc[item.participantId] ?? 0) + item.amount
+            return acc
+        }, {})
+
+        // 전체 지출과 1인당 목표 부담액을 계산한다.
+        const totalSpent = participants.reduce(
+            (sum, participant) => sum + (spentByParticipantId[participant.id] ?? 0),
+            0,
+        )
+        const targetPerPerson = totalSpent / participants.length
+
+        // 더 낸 사람(받을 사람) 목록
+        const creditors = participants
+            .map((participant) => ({
+                name: participant.name,
+                amount: (spentByParticipantId[participant.id] ?? 0) - targetPerPerson,
+            }))
+            .filter((item) => item.amount > 0)
+
+        // 덜 낸 사람(보낼 사람) 목록
+        const debtors = participants
+            .map((participant) => ({
+                name: participant.name,
+                amount: targetPerPerson - (spentByParticipantId[participant.id] ?? 0),
+            }))
+            .filter((item) => item.amount > 0)
+
+        // 채무자/채권자를 순서대로 매칭해 최소 송금 횟수에 가깝게 정산 목록을 만든다.
+        const settlements: Settlement[] = []
+        let debtorIndex = 0
+        let creditorIndex = 0
+
+        while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
+            const transferAmount = Math.min(
+                debtors[debtorIndex].amount,
+                creditors[creditorIndex].amount,
+            )
+
+            if (transferAmount <= 0) break
+
+            settlements.push({
+                from: debtors[debtorIndex].name,
+                to: creditors[creditorIndex].name,
+                amount: transferAmount,
+            })
+
+            debtors[debtorIndex].amount -= transferAmount
+            creditors[creditorIndex].amount -= transferAmount
+
+            if (debtors[debtorIndex].amount <= 0) debtorIndex += 1
+            if (creditors[creditorIndex].amount <= 0) creditorIndex += 1
+        }
+
+        return settlements
+    }
+
     const handlePresetAmountClick = (id: string, addAmount: number) => {
         setParticipants((prev) =>
             prev.map((p) => {
@@ -165,6 +231,26 @@ function App() {
         setParticipants(normalizedParticipants)
         setInputError('')
         setCurrentStep(2)
+    }
+
+    const settlements = buildSettlements()
+    const totalSpent = expenseList.reduce((sum, item) => sum + item.amount, 0)
+    const perPerson = participants.length > 0 ? totalSpent / participants.length : 0
+
+    const startNewCalculation = () => {
+        setParticipantInputs([
+            {id: crypto.randomUUID(), name: ''},
+            {id: crypto.randomUUID(), name: ''},
+        ])
+        setParticipants([])
+        setExpenseList([])
+        setOpenParticipantIds([])
+        setInputError('')
+        setCurrentStep(1)
+    }
+
+    const shareTemporarily = () => {
+        window.alert('공유 기능은 준비 중입니다.')
     }
 
     return (
@@ -248,7 +334,7 @@ function App() {
                                                 onClick={() => toggleParticipantDetail(participant.id)}
                                                 aria-expanded={isOpen}
                                                 aria-controls={`detail-${participant.id}`}>
-                                                <img src={addIcon} alt=""/>
+                                                <img src={isOpen ? removeIcon : addIcon} alt=""/>
                                             </button>
                                         </div>
                                         <ul>
@@ -326,15 +412,49 @@ function App() {
                 {currentStep === 3 ? (
                     <article className="step-card">
                         <h2>최종 정산 결과</h2>
-                        <ul className="result-list">
-                            <li>현우가 지연에게 4,000원 송금</li>
-                            <li>민수가 지연에게 1,000원 송금</li>
-                            <li>정산 완료 후 모두 13,000원씩 부담</li>
-                        </ul>
+                        <section className="receipt" aria-label="정산 영수증">
+                            <div className="receipt-header">
+                                <p className="receipt-title">PAY BALANCE RECEIPT</p>
+                                <p className="receipt-subtitle">정산 결과 영수증</p>
+                            </div>
+                            <div className="receipt-meta">
+                                <p>
+                                    <span>참여 인원</span>
+                                    <strong>{participants.length}명</strong>
+                                </p>
+                                <p>
+                                    <span>총 지출 금액</span>
+                                    <strong>{formatAmount(totalSpent)}원</strong>
+                                </p>
+                                <p>
+                                    <span>1인당 부담 금액</span>
+                                    <strong>{formatAmount(Math.round(perPerson))}원</strong>
+                                </p>
+                            </div>
+
+                            {settlements.length === 0 ? (
+                                <p className="empty-message">정산 결과를 계산할 데이터가 부족합니다.</p>
+                            ) : (
+                                <ul className="result-list receipt-list">
+                                    {settlements.map((settlement, index) => (
+                                        <li key={`${settlement.from}-${settlement.to}-${index}`}>
+                                            {settlement.from}가 {settlement.to}에게 {formatAmount(Math.round(settlement.amount))}
+                                            원 송금
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
 
                         <div className="action-row">
                             <button type="button" className="secondary" onClick={() => setCurrentStep(2)}>
                                 이전
+                            </button>
+                            <button type="button" className="secondary" onClick={shareTemporarily}>
+                                공유하기 (임시)
+                            </button>
+                            <button type="button" onClick={startNewCalculation}>
+                                새로운 계산
                             </button>
                         </div>
                     </article>
