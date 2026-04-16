@@ -1,9 +1,10 @@
 .page {
-    max-width: 960px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 40px 20px 48px;
 }
 
+/* 페이지 헤더 */
 .page-header {
     margin-bottom: 24px;
 }
@@ -14,10 +15,7 @@
     line-height: 1.2;
 }
 
-.page-header p {
-    margin-top: 8px;
-    color: #6b7280;
-}
+/*  step 영역   */
 
 .step-indicator {
     display: flex;
@@ -42,7 +40,7 @@
 }
 
 .step-content {
-    max-width: 640px;
+    max-width: 1200px;
 }
 
 .step-card {
@@ -55,6 +53,167 @@
 .step-card h2 {
     margin: 0 0 14px;
     font-size: 20px;
+}
+
+/* hero 영역 */
+.hero-section {
+    margin-bottom: 16px;
+}
+
+.step-kicker {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.2;
+}
+
+.step-title {
+    margin: 2px 0 8px;
+    font-size: 48px;
+    font-weight: 700;
+}
+
+.step-description {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.35;
+    color: #111827;
+}
+
+/*  각 항목별 정산 방법 */
+.settlement-type-grid {
+    border-radius: 8px;
+    padding: 2px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin: 20px 0 16px;
+    align-items: stretch;
+}
+
+.settlement-type-card {
+    border: 1px solid #4b5563;
+    border-radius: 10px;
+    min-height: 132px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    text-align: center;
+    padding: 14px 10px;
+    background-color: rgba(255, 255, 255, 0.61);
+}
+
+.settlement-type-title {
+    font-size: 16px;
+    line-height: 1.3;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.settlement-type-description {
+    margin: 6px 0 0;
+    padding: 0 6px;
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 58px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-wrap: anywhere;
+}
+
+
+
+
+.step1-divider {
+    border-top: 1px solid #6b7280;
+    margin: 10px 0 20px;
+}
+
+.step1-progress {
+    margin: 50px 0 18px;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.step1-progress-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 14px;
+    position: relative;
+}
+
+.step1-progress-item::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: -50%;
+    width: 100%;
+    height: 1px;
+    background-color: #d1d5db;
+    z-index: 0;
+}
+
+.step1-progress-item:first-child::before {
+    display: none;
+}
+
+.step1-progress-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #9ca3af;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    position: relative;
+    z-index: 1;
+}
+
+.step1-progress-item.is-current .step1-progress-badge {
+    background-color: #1d9bf0;
+}
+
+.step1-progress-item.is-current {
+    color: #111827;
+}
+
+.step1-notice {
+    border: 1px solid #fb923c;
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.step1-notice-left strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #b45309;
+}
+
+.step1-notice-left p {
+    margin: 0;
+    color: #92400e;
+}
+
+.step1-notice-label {
+    font-weight: 700;
+    color: #92400e;
 }
 
 .input-form {
@@ -81,6 +240,12 @@
     font-size: 14px;
 }
 
+.input-row.participant-input-row input,
+.input-row.participant-input-row .participant-remove-button {
+    height: 48px;
+}
+
+
 .participant-input-row {
     display: flex;
     flex-direction: row;
@@ -93,10 +258,9 @@
 }
 
 .step-card button.participant-remove-button {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: 1px solid #cbd5e1;
+    width: 62px;
+    padding: 0 8px;
+    border: 1px solid #f3f3f3;
     background-color: #ffffff;
     display: inline-flex;
     align-items: center;
@@ -119,7 +283,6 @@
     border: #1e293b solid 1px;
     border-radius: 8px;
     color: #2d2d2d;
-    background-color: #daf5e2;
     font-weight: 600;
     cursor: pointer;
 }
@@ -130,9 +293,40 @@
 }
 
 .action-row {
+    margin-top: 5px;
+}
+
+.action-row-flex{
     display: flex;
-    gap: 8px;
-    margin-top: 2px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.action-row .secondary {
+    min-width: 80px;   /* 가로 확장 */
+    height: 48px;       /* 세로 확장 */
+    padding: 0 20px;    /* 내부 여백 */
+    font-size: 16px;    /* 글자도 같이 키우고 싶을 때 */
+}
+
+.reset-action-button {
+    background-color: #ffffff !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.reset-action-button img {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.step1-add-member-button {
+    width: 100%;
+    height: 40px;
 }
 
 .participant-expense-list,
@@ -267,5 +461,21 @@
 @media (max-width: 768px) {
     .page {
         padding: 24px 16px 32px;
+    }
+
+    .step-kicker {
+        font-size: 22px;
+    }
+
+    .step-title {
+        font-size: 34px;
+    }
+
+    .step-description {
+        font-size: 20px;
+    }
+
+    .step-feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

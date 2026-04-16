@@ -3,8 +3,32 @@ import './App.css'
 import closeIcon from './assets/close.svg'
 import addIcon from './assets/add.svg'
 import removeIcon from './assets/remove.svg'
+import refreshIcon from './assets/refresh.svg'
 
 const presetAmounts = [10, 50, 100, 500, 1000, 5000, 10000, 50000]
+
+const settlementTypeCards = [
+    {
+        title: '균등 정산',
+        description: '총금액을 참여자 수만큼 똑같이 나눕니다.',
+    },
+    {
+        title: '차액 정산',
+        description: '각자 낸 금액을 비교해 누가 누구에게 얼마를 보내야 하는지 계산합니다.',
+    },
+    {
+        title: '항목별 정산',
+        description: '술값, 안주값, 택시비처럼 항목별로 나눠 정산합니다.',
+    },
+    {
+        title: '제외 정산',
+        description: '특정 항목에서 빠지는 사람을 제외하고 계산합니다.',
+    },
+    {
+        title: '비율 정산',
+        description: '사람마다 다른 비율로 부담 금액을 계산합니다.',
+    },
+]
 
 type ParticipantInput = {
     id: string
@@ -49,10 +73,8 @@ function App() {
     // Step2에서 상세 입력 패널이 열려 있는 참여자 id 목록(다중 토글용)
     const [openParticipantIds, setOpenParticipantIds] = useState<string[]>([])
 
-
     // 정산금 내역 리스트
     const [expenseList, setExpenseList] = useState<ExpenseItem[]>([])
-
 
     // 등록 버튼을 누르면 해당 id의 요소에 list가 추가된다.
     const handleRegisterExpense = (participant: Participant) => {
@@ -257,33 +279,64 @@ function App() {
         <main className="page">
             <header className="page-header">
                 <h1>PayBalance</h1>
-                <p>회원가입처럼 단계별로 정산을 진행합니다.</p>
             </header>
 
-            <section className="step-indicator" aria-label="진행 단계">
-        <span className={currentStep === 1 ? 'step-indicator-item is-active' : 'step-indicator-item'}>
-          Step 1 참여자 입력
-        </span>
-                <span className={currentStep === 2 ? 'step-indicator-item is-active' : 'step-indicator-item'}>
-          Step 2 정산금액 입력
-        </span>
-                <span className={currentStep === 3 ? 'step-indicator-item is-active' : 'step-indicator-item'}>
-          Step 3 정산 결과
-        </span>
+            <section className="hero-section">
+                <h1 className="step-kicker">PayBalance</h1>
+                <h2 className="step-title">모임 정산이 늘 헷갈리셨나요?</h2>
+                <p className="step-description">
+                    누군가는 더 냈고, 누군가는 덜 냈지만 계산은 늘 복잡합니다.
+                    <br/>
+                    각자 결제한 금액을 입력하면 총 지출 금액, 1인당 부담 금액, 최종 송금 관계를 한 번에 해결!
+                </p>
             </section>
 
+            <section className="settlement-type-section">
+                <div className="settlement-type-grid">
+                    {settlementTypeCards.map((card, index) => (
+                        <article className="settlement-type-card" key={`feature-${index}`}>
+                            <strong className="settlement-type-title">{card.title}</strong>
+                            <p className="settlement-type-description">{card.description}</p>
+                        </article>
+                    ))}
+                </div>
+            </section>
+
+
             <section className="step-content">
+                <ol className="step1-progress" aria-label="진행 단계">
+                    <li className={currentStep === 1 ? 'step1-progress-item is-current' : 'step1-progress-item'}>
+                        <span className="step1-progress-badge">1</span>
+                        <span>정산멤버 추가</span>
+                    </li>
+                    <li className={currentStep === 2 ? 'step1-progress-item is-current' : 'step1-progress-item'}>
+                        <span className="step1-progress-badge">2</span>
+                        <span>정산금액 입력</span>
+                    </li>
+                    <li className={currentStep === 3 ? 'step1-progress-item is-current' : 'step1-progress-item'}>
+                        <span className="step1-progress-badge">3</span>
+                        <span>정산결과</span>
+                    </li>
+                </ol>
+
                 {currentStep === 1 ? (
                     <article className="step-card">
-                        <h2>참여자 입력</h2>
+                        <div className="step1-divider"/>
+
+                        <section className="step1-notice" aria-label="정산 안내">
+                            <div className="step1-notice-left">
+                                <strong>{'{Title}'}</strong>
+                                <p>{'{Description}'}</p>
+                            </div>
+                            <span className="step1-notice-label">LABEL</span>
+                        </section>
 
                         {participantInputs.map((item, index) => (
                             <div className="input-row participant-input-row" key={item.id}>
-                                {/*<label htmlFor={`participant-${item.id}`}>참여자 {index + 1}</label>*/}
                                 <input
                                     id={`participant-${item.id}`}
                                     type="text"
-                                    placeholder="참여자 이름"
+                                    placeholder="정산 멤버 이름"
                                     value={item.name}
                                     onChange={(event) => handleNameChange(item.id, event.target.value)}
                                 />
@@ -293,10 +346,10 @@ function App() {
                                     onClick={() => handleRemoveParticipant(item.id)}
                                     aria-label={`참여자 ${index + 1} 삭제`}
                                     className="participant-remove-button"
-                                    disabled={participantInputs.length <= 2}
-                                >
+                                    disabled={participantInputs.length <= 2}>
                                     <img src={closeIcon} alt=""/>
                                 </button>
+
                             </div>
                         ))}
 
@@ -307,12 +360,17 @@ function App() {
                         ) : null}
 
                         <div className="action-row">
-                            <button type="button" onClick={addParticipant}>
-                                참여자 입력창 추가
+                            <button type="button" className="step1-add-member-button" onClick={addParticipant}>
+                                + 정산 멤버 추가
                             </button>
-                            <button type="button" className="secondary" onClick={goToStep2}>
-                                다음
-                            </button>
+                            <div className="action-row-flex">
+                                <button type="button" className="secondary reset-action-button">
+                                    <img src={refreshIcon} alt=""/> 초기화
+                                </button>
+                                <button type="button" className="secondary" onClick={goToStep2}>
+                                    다음
+                                </button>
+                            </div>
                         </div>
                     </article>
                 ) : null}
@@ -402,7 +460,7 @@ function App() {
                             <button type="button" className="secondary" onClick={() => setCurrentStep(1)}>
                                 이전
                             </button>
-                            <button type="button" onClick={() => setCurrentStep(3)}>
+                            <button type="button" className="secondary" onClick={() => setCurrentStep(3)}>
                                 다음
                             </button>
                         </div>
