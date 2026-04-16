@@ -19,14 +19,14 @@
     color: #6b7280;
 }
 
-.step-bar {
+.step-indicator {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 16px;
 }
 
-.step-badge {
+.step-indicator-item {
     border: 1px solid #cbd5e1;
     border-radius: 999px;
     padding: 6px 12px;
@@ -35,24 +35,24 @@
     background-color: #ffffff;
 }
 
-.step-badge.active {
+.step-indicator-item.is-active {
     border-color: #0f766e;
     color: #0f766e;
     background-color: #f0fdfa;
 }
 
-.step-panel {
+.step-content {
     max-width: 640px;
 }
 
-.card {
+.step-card {
     border: 1px solid #d1d5db;
     border-radius: 12px;
     background-color: #ffffff;
     padding: 16px;
 }
 
-.card h2 {
+.step-card h2 {
     margin: 0 0 14px;
     font-size: 20px;
 }
@@ -81,18 +81,18 @@
     font-size: 14px;
 }
 
-.participant-row {
+.participant-input-row {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
 }
 
-.participant-row input {
+.participant-input-row input {
     flex: 1;
 }
 
-.card button.remove-button {
+.step-card button.participant-remove-button {
     width: 40px;
     height: 40px;
     padding: 0;
@@ -103,45 +103,46 @@
     justify-content: center;
 }
 
-.card button.remove-button img {
+.step-card button.participant-remove-button img {
     width: 16px;
     height: 16px;
 }
 
-.card button.remove-button:disabled {
+.step-card button.participant-remove-button:disabled {
     background-color: #e5e7eb;
     border-color: #d1d5db;
     cursor: default;
     opacity: 1;
 }
 
-.card button {
+.step-card button {
     border: #1e293b solid 1px;
     border-radius: 8px;
-    color: #ffffff;
+    color: #2d2d2d;
+    background-color: #daf5e2;
     font-weight: 600;
     cursor: pointer;
 }
 
-.card button.secondary {
+.step-card button.secondary {
     background-color: #e2e8f0;
     color: #1e293b;
 }
 
-.button-row {
+.action-row {
     display: flex;
     gap: 8px;
     margin-top: 2px;
 }
 
-.list,
+.participant-expense-list,
 .result-list {
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.list li {
+.participant-expense-list li {
     /*display: flex;*/
     /*justify-content: space-between;*/
     /*align-items: center;*/
@@ -149,9 +150,30 @@
     border-top: 1px solid #e5e7eb;
 }
 
-.list li:first-child {
+.participant-expense-list li:first-child {
     border-top: 0;
     padding-top: 0;
+}
+
+.participant-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.participant-detail-panel {
+    margin-top: 12px;
+}
+
+.amount-preset-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.expense-submit-button {
+    margin-top: 8px;
 }
 
 .error-message {
