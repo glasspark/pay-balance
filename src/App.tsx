@@ -6,6 +6,7 @@ import removeIcon from './assets/remove.svg'
 import refreshIcon from './assets/refresh.svg'
 import warningIcon from './assets/warning_amber.svg'
 import doneIcon from './assets/done.svg'
+import questionIcon from './assets/question.svg'
 
 
 const presetAmounts = [10, 50, 100, 500, 1000, 5000, 10000, 50000]
@@ -77,6 +78,8 @@ function App() {
 
     // Step2에서 상세 입력 패널이 열려 있는 참여자 id 목록(다중 토글용)
     const [openParticipantIds, setOpenParticipantIds] = useState<string[]>([])
+    // Step3 계산 방식 안내 박스 노출 상태
+    const [showReceiptHelp, setShowReceiptHelp] = useState(false)
 
     // 정산금 내역 리스트
     const [expenseList, setExpenseList] = useState<ExpenseItem[]>([])
@@ -298,8 +301,12 @@ function App() {
 
     const settlements = buildSettlements()
     const totalSpent = expenseList.reduce((sum, item) => sum + item.amount, 0)
-    const perPerson = participants.length > 0 ? totalSpent / participants.length : 0
-
+    const perPersonShare = participants.length > 0 ? Math.round(totalSpent / participants.length) : 0
+    const participantTotals = participants.map((participant) => {
+        const items = expenseList.filter((item) => item.participantId === participant.id)
+        const total = items.reduce((sum, item) => sum + item.amount, 0)
+        return {participant, items, total}
+    })
     const startNewCalculation = () => {
         setParticipantInputs([
             {id: crypto.randomUUID(), name: ''},
@@ -309,6 +316,7 @@ function App() {
         setExpenseList([])
         setOpenParticipantIds([])
         setInputError('')
+        setShowReceiptHelp(false)
         setCurrentStep(1)
     }
 
@@ -549,10 +557,66 @@ function App() {
                         <article className="step-card">
                             <h2>최종 정산 결과</h2>
                             <section className="receipt" aria-label="정산 영수증">
+                                <button
+                                    type="button"
+                                    className="receipt-help-toggle"
+                                    onClick={() => setShowReceiptHelp((prev) => !prev)}
+                                    aria-label="계산 방식 설명 보기"
+                                    aria-haspopup="true"
+                                    aria-expanded={showReceiptHelp}
+                                    aria-controls="receipt-help-popover"
+                                >
+                                    <img src={questionIcon} alt=""/>
+                                </button>
+                                {showReceiptHelp ? (
+                                    <div id="receipt-help-popover" className="receipt-help-popover" role="status">
+                                        <p className="receipt-help-popover-title">계산 로직</p>
+                                        <ol>
+                                            <li>각 참여자의 지출 금액을 합산합니다.</li>
+                                            <li>전체 지출을 참여 인원수로 나눠 기준 부담액을 구합니다.</li>
+                                            <li>기준 대비 차액으로 받을 사람/보낼 사람을 계산합니다.</li>
+                                            <li>양쪽을 순차 매칭해 최종 송금 금액을 만듭니다.</li>
+                                        </ol>
+                                        <div className="receipt-help-breakdown">
+                                            {participantTotals.map(({participant, items, total}) => (
+                                                <p key={participant.id}>
+                                                    {participant.name} : {items.length > 0
+                                                    ? items.map((item) => formatAmount(item.amount)).join(' + ')
+                                                    : '0'} = {formatAmount(total)}원
+                                                </p>
+                                            ))}
+                                            <p>
+                                                총 금액 : {participantTotals.length > 0
+                                                ? participantTotals.map((item) => formatAmount(item.total)).join(' + ')
+                                                : '0'} = {formatAmount(totalSpent)}원
+                                            </p>
+                                            <p>
+                                                1인 부담 금액
+                                                : {formatAmount(totalSpent)} ÷ {participants.length || 1} = {formatAmount(perPersonShare)}원
+                                            </p>
+                                            <p className="receipt-help-breakdown-title">차액 계산</p>
+                                            {participantTotals.map(({participant, total}) => {
+                                                const diff = perPersonShare - total
+                                                const diffLabel = diff > 0 ? `${formatAmount(diff)}원` : `- ${formatAmount(Math.abs(diff))}원`
+                                                return (
+                                                    <p key={`${participant.id}-diff`}>
+                                                        {participant.name} : {formatAmount(perPersonShare)} - {formatAmount(total)} = {diffLabel}
+                                                    </p>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : null}
+
                                 <div className="receipt-header">
                                     <p className="receipt-title">PAY BALANCE RECEIPT</p>
                                     <p className="receipt-subtitle">정산 결과 영수증</p>
                                 </div>
+
+                                <div className="receipt-help-box">
+                                    정산 방식: 총 지출 금액을 참여 인원수로 균등 분할(1/N)해 계산합니다.
+                                </div>
+
                                 <div className="receipt-meta">
                                     <p>
                                         <span>참여 인원</span>
@@ -562,22 +626,66 @@ function App() {
                                         <span>총 지출 금액</span>
                                         <strong>{formatAmount(totalSpent)}원</strong>
                                     </p>
-                                    <p>
-                                        <span>1인당 부담 금액</span>
-                                        <strong>{formatAmount(Math.round(perPerson))}원</strong>
-                                    </p>
                                 </div>
 
-                                {settlements.length === 0 ? (
-                                    <p className="empty-message">정산 결과를 계산할 데이터가 부족합니다.</p>
-                                ) : (
-                                    <div className="receipt-transfer-list">
-                                        <div className="receipt-transfer-head">
-                                            <span>보내는 사람</span>
-                                            <span>받는 사람</span>
-                                            <span>송금 금액</span>
-                                        </div>
-                                        {settlements.map((settlement, index) => (
+                                <div className="receipt-expense-list">
+                                    <div className="receipt-expense-head">
+                                        <span>결제자</span>
+                                        <span>장소</span>
+                                        <span>지불 금액</span>
+                                    </div>
+
+                                    {participants.length === 0 ? (
+                                        <p className="empty-message receipt-empty-message">지출 내역이 없습니다.</p>
+                                    ) : (
+                                        participants.map((participant) => {
+                                            const items = expenseList.filter((item) => item.participantId === participant.id)
+                                            const total = items.reduce((sum, item) => sum + item.amount, 0)
+
+                                            if (items.length === 0) {
+                                                return (
+                                                    <div key={`${participant.id}-total`}
+                                                         className="receipt-expense-row receipt-expense-total-row">
+                                                        <span>{participant.name}</span>
+                                                        <span>합계</span>
+                                                        <span>0원</span>
+                                                    </div>
+                                                )
+                                            }
+
+                                            return (
+                                                <div key={participant.id}>
+                                                    {items.map((item, index) => (
+                                                        <div key={item.id} className="receipt-expense-row">
+                                                            <span>{index === 0 ? participant.name : ''}</span>
+                                                            <span>{item.source}</span>
+                                                            <span>{formatAmount(item.amount)}원</span>
+                                                        </div>
+                                                    ))}
+
+                                                    <div className="receipt-expense-row receipt-expense-total-row">
+                                                        {/*<span>{participant.name}</span>*/}
+                                                        {/*<span>합계</span>*/}
+                                                        <span></span>
+                                                        <span></span>
+                                                        <span>{formatAmount(total)}원</span>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
+
+                                <div className="receipt-transfer-list">
+                                    <div className="receipt-transfer-head">
+                                        <span>보내는 사람</span>
+                                        <span>받는 사람</span>
+                                        <span>송금 금액</span>
+                                    </div>
+                                    {settlements.length === 0 ? (
+                                        <p className="empty-message receipt-empty-message">정산 결과가 없습니다.</p>
+                                    ) : (
+                                        settlements.map((settlement, index) => (
                                             <div
                                                 key={`${settlement.from}-${settlement.to}-${index}`}
                                                 className="receipt-transfer-row"
@@ -586,11 +694,10 @@ function App() {
                                                 <span>{settlement.to}</span>
                                                 <span>{formatAmount(Math.round(settlement.amount))}원</span>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        ))
+                                    )}
+                                </div>
                             </section>
-
                         </article>
 
                         <div className="step3-bottom-actions">
