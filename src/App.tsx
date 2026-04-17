@@ -15,24 +15,24 @@ const MAX_AMOUNT = 100_000_000
 
 const settlementTypeCards = [
     {
-        title: '균등 정산',
-        description: '총금액을 참여자 수만큼 똑같이 나눕니다.',
+        title: '기본 균등 분배',
+        description: '항목 등록 시 참여자에게\n기본값으로 균등 분배됩니다.',
     },
     {
-        title: '차액 정산',
-        description: '각자 낸 금액을 비교해 누가 누구에게 얼마를 보내야 하는지 계산합니다.',
+        title: '항목별 분배 보정',
+        description: '각 항목에서 사람별 부담 금액을\n직접 조정할 수 있습니다.',
     },
     {
-        title: '항목별 정산',
-        description: '술값, 안주값, 택시비처럼 항목별로 나눠 정산합니다.',
+        title: '제외 대상 설정',
+        description: '특정 항목에서 빠질 사람을\n 제외하고 나머지 사람들에게\n 재분배합니다.',
     },
     {
-        title: '제외 정산',
-        description: '특정 항목에서 빠지는 사람을 제외하고 계산합니다.',
+        title: '고정 금액 반영',
+        description: '사람별 고정 부담액을 먼저 반영한 뒤 남은 금액을 분배합니다.',
     },
     {
-        title: '비율 정산',
-        description: '사람마다 다른 비율로 부담 금액을 계산합니다.',
+        title: '비율/퍼센트 입력',
+        description: '비율(1:2:1) 또는 퍼센트(%) 모드로 항목별 부담 비중을 설정합니다.',
     },
 ]
 
@@ -54,9 +54,14 @@ type ExpenseItem = {
     participantName: string
     source: string
     amount: number
+    excludedParticipantIds: string[]
+    allocations: Record<string, number>
+    allocationFixedByParticipantId: Record<string, number>
+    allocationRatioByParticipantId: Record<string, number>
 }
 
 type Settlement = { from: string; to: string; amount: number }
+type AllocationInputMode = 'ratio' | 'percent'
 
 
 function App() {
@@ -64,8 +69,8 @@ function App() {
     // 첫 렌더부터 입력창이 2개
     // Step1에서 사용자가 직접 입력 중인 참여자 이름 입력창 상태
     const [participantInputs, setParticipantInputs] = useState<ParticipantInput[]>([
-        {id: crypto.randomUUID(), name: ''},
-        {id: crypto.randomUUID(), name: ''},
+        {id: crypto.randomUUID(), name: '흰둥이'},
+        {id: crypto.randomUUID(), name: '가나디'},
     ])
     // Step1 입력 완료 후 Step2/Step3에서 사용할 확정 참여자 데이터
     const [participants, setParticipants] = useState<Participant[]>([])
@@ -80,16 +85,95 @@ function App() {
     const [openParticipantIds, setOpenParticipantIds] = useState<string[]>([])
     // Step3 계산 방식 안내 박스 노출 상태
     const [showReceiptHelp, setShowReceiptHelp] = useState(false)
-
     // 정산금 내역 리스트
     const [expenseList, setExpenseList] = useState<ExpenseItem[]>([])
+    // Step2 항목별 분배 상세 편집 열림 상태
+    const [openExpenseEditorId, setOpenExpenseEditorId] = useState<string | null>(null)
+    // 항목 분배 표기 모드
+    const [allocationInputMode] = useState<AllocationInputMode>('ratio')
+
+    const buildAllocationsFromRule = (
+        amount: number,
+        participantIds: string[],
+        fixedByParticipantId: Record<string, number>,
+        ratioByParticipantId: Record<string, number>,
+    ) => {
+        const allocations: Record<string, number> = {}
+        participants.forEach((participant) => {
+            allocations[participant.id] = 0
+        })
+
+        if (participantIds.length === 0 || amount <= 0) return allocations
+
+        const eligibleIds = participantIds.filter((id) => participants.some((participant) => participant.id === id))
+        let fixedTotal = 0
+        eligibleIds.forEach((id) => {
+            const fixed = Math.max(0, fixedByParticipantId[id] ?? 0)
+            allocations[id] = fixed
+            fixedTotal += fixed
+        })
+
+        const remaining = Math.max(0, Math.round(amount) - fixedTotal)
+        const variableIds = eligibleIds.filter((id) => (fixedByParticipantId[id] ?? 0) <= 0)
+        if (remaining <= 0 || variableIds.length === 0) return allocations
+
+        const totalRatio = variableIds.reduce((sum, id) => sum + Math.max(1, ratioByParticipantId[id] ?? 1), 0)
+        const rawShares = variableIds.map((id) => {
+            const ratio = Math.max(1, ratioByParticipantId[id] ?? 1)
+            const raw = remaining * (ratio / totalRatio)
+            return {id, raw, floor: Math.floor(raw), fraction: raw - Math.floor(raw)}
+        })
+        const floorTotal = rawShares.reduce((sum, share) => sum + share.floor, 0)
+        let leftover = remaining - floorTotal
+        const sorted = [...rawShares].sort((a, b) => b.fraction - a.fraction)
+        const extraById: Record<string, number> = {}
+        sorted.forEach((share) => {
+            extraById[share.id] = 0
+        })
+        for (let i = 0; i < leftover; i += 1) {
+            const target = sorted[i % sorted.length]
+            extraById[target.id] += 1
+        }
+
+        rawShares.forEach((share) => {
+            allocations[share.id] += share.floor + (extraById[share.id] ?? 0)
+        })
+        return allocations
+    }
+
+    const recalculateExpenseAllocations = (expense: ExpenseItem) => {
+        const eligibleIds = participants
+            .map((participant) => participant.id)
+            .filter((participantId) => !expense.excludedParticipantIds.includes(participantId))
+        return buildAllocationsFromRule(
+            expense.amount,
+            eligibleIds,
+            expense.allocationFixedByParticipantId,
+            expense.allocationRatioByParticipantId,
+        )
+    }
 
     // 등록 시 숫자 파싱 (쉼표 제거 후 반환)
     const handleRegisterExpense = (participant: Participant) => {
         const source = participant.expenseSource.trim()
         const amount = Number(participant.expenseAmount.replace(/,/g, ''))
+        const excludedParticipantIds: string[] = []
+        const eligibleParticipantIds = participants.map((item) => item.id)
 
         if (!source || !Number.isFinite(amount) || amount <= 0) return
+
+        const allocationFixedByParticipantId: Record<string, number> = {}
+        const allocationRatioByParticipantId: Record<string, number> = {}
+        participants.forEach((item) => {
+            allocationFixedByParticipantId[item.id] = 0
+            allocationRatioByParticipantId[item.id] = 1
+        })
+        const allocations = buildAllocationsFromRule(
+            Math.round(amount),
+            eligibleParticipantIds,
+            allocationFixedByParticipantId,
+            allocationRatioByParticipantId,
+        )
 
         setExpenseList((prev) => [
             ...prev,
@@ -99,6 +183,10 @@ function App() {
                 participantName: participant.name,
                 source,
                 amount,
+                excludedParticipantIds,
+                allocations,
+                allocationFixedByParticipantId,
+                allocationRatioByParticipantId,
             },
         ])
 
@@ -116,6 +204,66 @@ function App() {
             prev.filter(
                 (item) => !(item.participantId === participantId && item.id === expenseId)
             )
+        )
+        setOpenExpenseEditorId((prev) => (prev === expenseId ? null : prev))
+    }
+
+    const updateExpenseAllocationFixed = (expenseId: string, participantId: string, rawValue: string) => {
+        const numeric = Math.max(0, Number(rawValue.replace(/[^\d]/g, '')) || 0)
+        setExpenseList((prev) =>
+            prev.map((expense) => {
+                if (expense.id !== expenseId) return expense
+                const updatedExpense = {
+                    ...expense,
+                    allocationFixedByParticipantId: {
+                        ...expense.allocationFixedByParticipantId,
+                        [participantId]: numeric,
+                    },
+                }
+                return {
+                    ...updatedExpense,
+                    allocations: recalculateExpenseAllocations(updatedExpense),
+                }
+            }),
+        )
+    }
+
+    const updateExpenseAllocationRatio = (expenseId: string, participantId: string, rawValue: string) => {
+        const numeric = Math.max(0, Number(rawValue.replace(/[^\d]/g, '')) || 0)
+        setExpenseList((prev) =>
+            prev.map((expense) => {
+                if (expense.id !== expenseId) return expense
+                const updatedExpense = {
+                    ...expense,
+                    allocationRatioByParticipantId: {
+                        ...expense.allocationRatioByParticipantId,
+                        [participantId]: numeric,
+                    },
+                }
+                return {
+                    ...updatedExpense,
+                    allocations: recalculateExpenseAllocations(updatedExpense),
+                }
+            }),
+        )
+    }
+
+    const toggleExpenseAllocationExcluded = (expenseId: string, participantId: string) => {
+        setExpenseList((prev) =>
+            prev.map((expense) => {
+                if (expense.id !== expenseId) return expense
+                const isExcluded = expense.excludedParticipantIds.includes(participantId)
+                const updatedExpense = {
+                    ...expense,
+                    excludedParticipantIds: isExcluded
+                        ? expense.excludedParticipantIds.filter((id) => id !== participantId)
+                        : [...expense.excludedParticipantIds, participantId],
+                }
+                return {
+                    ...updatedExpense,
+                    allocations: recalculateExpenseAllocations(updatedExpense),
+                }
+            }),
         )
     }
 
@@ -158,29 +306,111 @@ function App() {
             .reduce((sum, item) => sum + item.amount, 0)
     }
 
-    // Step3 정산 결과 계산:
-    // 1) 개인별 지출 합산 -> 2) 1인당 부담액 계산 -> 3) 송금 매칭 목록 생성
-    const buildSettlements = (): Settlement[] => {
-        if (participants.length === 0) return []
+    const getExpenseAllocationSum = (expense: ExpenseItem) => {
+        return participants.reduce(
+            (sum, participant) => sum + (expense.allocations[participant.id] ?? 0),
+            0,
+        )
+    }
 
-        // participantId 기준으로 실제 지출 총액을 누적한다.
+    const getExpenseAllocationMismatchMessage = (expense: ExpenseItem) => {
+        const eligibleIds = participants
+            .map((participant) => participant.id)
+            .filter((participantId) => !expense.excludedParticipantIds.includes(participantId))
+        if (eligibleIds.length === 0) {
+            return `항목 "${expense.source}"의 분배 대상이 없습니다.`
+        }
+        const fixedTotal = eligibleIds.reduce(
+            (sum, participantId) => sum + (expense.allocationFixedByParticipantId[participantId] ?? 0),
+            0,
+        )
+        if (fixedTotal > expense.amount) {
+            return `항목 "${expense.source}"의 고정 금액 합계가 항목 금액보다 큽니다.`
+        }
+        const allocationSum = getExpenseAllocationSum(expense)
+        if (Math.round(allocationSum) !== Math.round(expense.amount)) {
+            return `항목 "${expense.source}" 분배 합계가 항목 금액과 일치하지 않습니다.`
+        }
+        return ''
+    }
+
+    const buildSettlementContext = () => {
         const spentByParticipantId = expenseList.reduce<Record<string, number>>((acc, item) => {
             acc[item.participantId] = (acc[item.participantId] ?? 0) + item.amount
             return acc
         }, {})
-
-        // 전체 지출과 1인당 목표 부담액을 계산한다.
         const totalSpent = participants.reduce(
             (sum, participant) => sum + (spentByParticipantId[participant.id] ?? 0),
             0,
         )
-        const targetPerPerson = totalSpent / participants.length
+        const targetByParticipantId: Record<string, number> = {}
+        let validationError = ''
+
+        if (participants.length === 0) {
+            return {
+                spentByParticipantId,
+                totalSpent,
+                targetByParticipantId,
+                validationError,
+            }
+        }
+
+        participants.forEach((participant) => {
+            targetByParticipantId[participant.id] = 0
+        })
+
+        expenseList.forEach((expense) => {
+            const eligibleIds = participants
+                .map((participant) => participant.id)
+                .filter((participantId) => !expense.excludedParticipantIds.includes(participantId))
+            if (eligibleIds.length === 0) {
+                validationError = `항목 "${expense.source}"의 분배 대상이 없습니다.`
+                return
+            }
+            const fixedTotal = eligibleIds.reduce(
+                (sum, participantId) => sum + (expense.allocationFixedByParticipantId[participantId] ?? 0),
+                0,
+            )
+            if (fixedTotal > expense.amount) {
+                validationError = `항목 "${expense.source}"의 고정 금액 합계가 항목 금액보다 큽니다.`
+                return
+            }
+            const allocationEntries = Object.entries(expense.allocations || {})
+            if (allocationEntries.length === 0) {
+                validationError = `항목 "${expense.source}" 분배 데이터가 없습니다.`
+                return
+            }
+            let allocationSum = 0
+            allocationEntries.forEach(([participantId, amount]) => {
+                if (!participants.some((participant) => participant.id === participantId)) return
+                const normalizedAmount = Math.max(0, amount)
+                allocationSum += normalizedAmount
+                targetByParticipantId[participantId] += normalizedAmount
+            })
+            if (Math.round(allocationSum) !== Math.round(expense.amount)) {
+                validationError = `항목 "${expense.source}" 분배 합계가 항목 금액과 다릅니다.`
+            }
+        })
+
+        return {
+            spentByParticipantId,
+            totalSpent,
+            targetByParticipantId,
+            validationError,
+        }
+    }
+
+    // Step3 정산 결과 계산:
+    // 개인별 지출 합계와 목표 부담액을 비교해 송금 관계를 생성한다.
+    const buildSettlements = (): Settlement[] => {
+        if (participants.length === 0) return []
+        const context = buildSettlementContext()
 
         // 더 낸 사람(받을 사람) 목록
         const creditors = participants
             .map((participant) => ({
                 name: participant.name,
-                amount: (spentByParticipantId[participant.id] ?? 0) - targetPerPerson,
+                amount: (context.spentByParticipantId[participant.id] ?? 0) - (context.targetByParticipantId[participant.id] ?? 0),
             }))
             .filter((item) => item.amount > 0)
 
@@ -188,7 +418,7 @@ function App() {
         const debtors = participants
             .map((participant) => ({
                 name: participant.name,
-                amount: targetPerPerson - (spentByParticipantId[participant.id] ?? 0),
+                amount: (context.targetByParticipantId[participant.id] ?? 0) - (context.spentByParticipantId[participant.id] ?? 0),
             }))
             .filter((item) => item.amount > 0)
 
@@ -267,7 +497,6 @@ function App() {
         (item) => item.name.trim().length > 0,
     ).length
     const canProceedStep1 = validParticipantCount >= 2
-    const canProceedStep2 = expenseList.length > 0
 
     const goToStep2 = () => {
         if (!canProceedStep1) {
@@ -299,13 +528,67 @@ function App() {
         setCurrentStep(3)
     }
 
+    const settlementContext = buildSettlementContext()
     const settlements = buildSettlements()
-    const totalSpent = expenseList.reduce((sum, item) => sum + item.amount, 0)
-    const perPersonShare = participants.length > 0 ? Math.round(totalSpent / participants.length) : 0
+    const totalSpent = settlementContext.totalSpent
+    const canProceedStep2 = expenseList.length > 0 && !settlementContext.validationError
+    const step2BlockingMessage = settlementContext.validationError.includes('분배 합계가 항목 금액과 다릅니다.')
+        ? '분배 합계가 맞지 않는 항목이 있습니다. 각 항목의 분배 합계를 확인해주세요.'
+        : settlementContext.validationError
     const participantTotals = participants.map((participant) => {
         const items = expenseList.filter((item) => item.participantId === participant.id)
         const total = items.reduce((sum, item) => sum + item.amount, 0)
         return {participant, items, total}
+    })
+    const participantSettlementSummary = participants.map((participant) => {
+        const paid = settlementContext.spentByParticipantId[participant.id] ?? 0
+        const burden = settlementContext.targetByParticipantId[participant.id] ?? 0
+        const diff = paid - burden
+        return {
+            id: participant.id,
+            name: participant.name,
+            paid,
+            burden,
+            diff,
+        }
+    })
+    const expenseRuleSummaryRows = expenseList.map((expense) => {
+        const excludedNames = expense.excludedParticipantIds
+            .map((id) => participants.find((participant) => participant.id === id)?.name)
+            .filter((name): name is string => Boolean(name))
+
+        const fixedEntries = participants
+            .map((participant) => ({
+                name: participant.name,
+                fixed: expense.allocationFixedByParticipantId[participant.id] ?? 0,
+            }))
+            .filter((entry) => entry.fixed > 0)
+
+        const ratioEntries = participants
+            .filter((participant) => !expense.excludedParticipantIds.includes(participant.id))
+            .filter((participant) => (expense.allocationFixedByParticipantId[participant.id] ?? 0) <= 0)
+            .map((participant) => ({
+                name: participant.name,
+                value: expense.allocationRatioByParticipantId[participant.id] ?? (allocationInputMode === 'percent' ? 0 : 1),
+            }))
+
+        return {
+            id: expense.id,
+            source: expense.source,
+            excludedText: excludedNames.length > 0 ? excludedNames.join(', ') : '-',
+            fixedText: fixedEntries.length > 0
+                ? fixedEntries.map((entry) => `${entry.name} ${formatAmount(entry.fixed)}원`).join(', ')
+                : '-',
+            ratioText: ratioEntries.length > 0
+                ? ratioEntries
+                    .map((entry) =>
+                        allocationInputMode === 'percent'
+                            ? `${entry.name} ${entry.value}%`
+                            : `${entry.name} ${entry.value}`,
+                    )
+                    .join(', ')
+                : '-',
+        }
     })
     const startNewCalculation = () => {
         setParticipantInputs([
@@ -375,15 +658,15 @@ function App() {
                 {currentStep === 1 ? (
                     <>
                         <article className="step-card">
-                            <div className="step1-divider"/>
-
+                            <h2>정산멤버 등록</h2>
                             <section className="step1-notice" aria-label="정산 안내">
                                 <div className="step1-notice-left">
                                     <div className="step1-notice-title-row">
                                         <img src={warningIcon} alt=""/>
-                                        <p>균등 정산은 균등 분할(1/N) 기반 정산입니다.</p>
+                                        <p>정산 멤버 등록</p>
                                     </div>
-                                    <p className="step1-notice-description"> - 정산 멤버는 최소 2인에서 최대 20명 까지 가능합니다.</p>
+                                    <p className="step1-notice-description"> - 정산 멤버는 최소 2인에서 최대 20명 까지 가능합니다.
+                                    </p>
                                 </div>
                             </section>
 
@@ -444,6 +727,13 @@ function App() {
                     <>
                         <article className="step-card">
                             <h2>정산금액 입력</h2>
+
+                            {step2BlockingMessage ? (
+                                <p className="error-message" role="alert">
+                                    {step2BlockingMessage}
+                                </p>
+                            ) : null}
+
                             <ul className="participant-expense-list">
                                 {participants.map((participant) => {
                                     const isOpen = openParticipantIds.includes(participant.id)
@@ -467,18 +757,90 @@ function App() {
                                                 {expenseList.filter((item) => item.participantId === participant.id).map((item) => (
                                                     <li key={`${item.participantId}-${item.id}`}
                                                         className="expense-item">
-                                                        <span className="expense-source">{item.source}</span>
-                                                        <div className="expense-item-actions">
-                                                        <span
-                                                            className="expense-amount">{item.amount.toLocaleString()}원</span>
-                                                            <button
-                                                                type="button"
-                                                                className="expense-delete-button"
-                                                                onClick={() => deleteExpense(item.participantId, item.id)}
-                                                            >
-                                                                <img src={closeIcon} alt=""/>
-                                                            </button>
+                                                        <div className="expense-item-main">
+                                                            <span className="expense-source">{item.source}</span>
+                                                            <div className="expense-item-actions">
+                                                            <span
+                                                                className="expense-amount">{item.amount.toLocaleString()}원</span>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`expense-adjust-button ${openExpenseEditorId === item.id ? 'open' : ''}`}
+                                                                    onClick={() =>
+                                                                        setOpenExpenseEditorId((prev) => (prev === item.id ? null : item.id))
+                                                                    }
+                                                                >
+                                                                    분배
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="expense-delete-button"
+                                                                    onClick={() => deleteExpense(item.participantId, item.id)}
+                                                                >
+                                                                    <img src={closeIcon} alt=""/>
+                                                                </button>
+                                                            </div>
                                                         </div>
+                                                        {openExpenseEditorId === item.id ? (
+                                                            <div className="expense-allocation-editor">
+                                                                <p>항목 분배 보정 (사람별 고정/비율/제외)</p>
+                                                                <ul>
+                                                                    {participants.map((targetParticipant) => (
+                                                                        <li key={`${item.id}-${targetParticipant.id}`}>
+                                                                            <span>{targetParticipant.name}
+                                                                                {targetParticipant.id === item.participantId ? (
+                                                                                    <em className="payer-badge">결제자</em>
+                                                                                ) : null}</span>
+                                                                            <label
+                                                                                className="allocation-cell exclude-cell">
+                                                                                <small>제외</small>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={item.excludedParticipantIds.includes(targetParticipant.id)}
+                                                                                    onChange={() => toggleExpenseAllocationExcluded(item.id, targetParticipant.id)}
+                                                                                />
+                                                                            </label>
+                                                                            <label className="allocation-cell">
+                                                                                <small>고정</small>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
+                                                                                    value={formatAmount(item.allocationFixedByParticipantId[targetParticipant.id] ?? 0)}
+                                                                                    onChange={(event) =>
+                                                                                        updateExpenseAllocationFixed(item.id, targetParticipant.id, event.target.value)
+                                                                                    }
+                                                                                    disabled={item.excludedParticipantIds.includes(targetParticipant.id)}
+                                                                                />
+                                                                            </label>
+                                                                            <label className="allocation-cell">
+                                                                                <small>비율</small>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
+                                                                                    value={String(item.allocationRatioByParticipantId[targetParticipant.id] ?? 1)}
+                                                                                    onChange={(event) =>
+                                                                                        updateExpenseAllocationRatio(item.id, targetParticipant.id, event.target.value)
+                                                                                    }
+                                                                                    disabled={item.excludedParticipantIds.includes(targetParticipant.id)}
+                                                                                />
+                                                                            </label>
+                                                                            <span className="allocation-amount">
+                                                                                {formatAmount(item.allocations[targetParticipant.id] ?? 0)}원
+                                                                            </span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                                <p className="allocation-summary">
+                                                                    분배 합계: {formatAmount(
+                                                                    getExpenseAllocationSum(item),
+                                                                )}원 / 항목 금액: {formatAmount(item.amount)}원
+                                                                </p>
+                                                                {getExpenseAllocationMismatchMessage(item) ? (
+                                                                    <p className="error-message allocation-error-message" role="alert">
+                                                                        {getExpenseAllocationMismatchMessage(item)}
+                                                                    </p>
+                                                                ) : null}
+                                                            </div>
+                                                        ) : null}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -499,7 +861,6 @@ function App() {
                                                             }
                                                         />
                                                     </div>
-
                                                     <div className="input-row">
                                                         <label htmlFor={`amount-${participant.id}`}>금액</label>
                                                         <input
@@ -572,10 +933,10 @@ function App() {
                                     <div id="receipt-help-popover" className="receipt-help-popover" role="status">
                                         <p className="receipt-help-popover-title">계산 로직</p>
                                         <ol>
-                                            <li>각 참여자의 지출 금액을 합산합니다.</li>
-                                            <li>전체 지출을 참여 인원수로 나눠 기준 부담액을 구합니다.</li>
-                                            <li>기준 대비 차액으로 받을 사람/보낼 사람을 계산합니다.</li>
-                                            <li>양쪽을 순차 매칭해 최종 송금 금액을 만듭니다.</li>
+                                            <li>각 참여자의 실제 결제 금액을 합산합니다.</li>
+                                            <li>항목별 분배 편집기에서 설정한 사람별 금액(고정/비율/제외 반영)을 합산합니다.</li>
+                                            <li>개인별 실제 결제액과 부담액의 차액을 계산합니다.</li>
+                                            <li>보낼 사람과 받을 사람을 순차 매칭해 최종 송금 금액을 만듭니다.</li>
                                         </ol>
                                         <div className="receipt-help-breakdown">
                                             {participantTotals.map(({participant, items, total}) => (
@@ -590,17 +951,15 @@ function App() {
                                                 ? participantTotals.map((item) => formatAmount(item.total)).join(' + ')
                                                 : '0'} = {formatAmount(totalSpent)}원
                                             </p>
-                                            <p>
-                                                1인 부담 금액
-                                                : {formatAmount(totalSpent)} ÷ {participants.length || 1} = {formatAmount(perPersonShare)}원
-                                            </p>
+                                            <p>기준 부담 방식 : 항목별 분배 편집기 설정값 합산</p>
                                             <p className="receipt-help-breakdown-title">차액 계산</p>
                                             {participantTotals.map(({participant, total}) => {
-                                                const diff = perPersonShare - total
+                                                const target = settlementContext.targetByParticipantId[participant.id] ?? 0
+                                                const diff = target - total
                                                 const diffLabel = diff > 0 ? `${formatAmount(diff)}원` : `- ${formatAmount(Math.abs(diff))}원`
                                                 return (
                                                     <p key={`${participant.id}-diff`}>
-                                                        {participant.name} : {formatAmount(perPersonShare)} - {formatAmount(total)} = {diffLabel}
+                                                        {participant.name} : {formatAmount(Math.round(target))} - {formatAmount(total)} = {diffLabel}
                                                     </p>
                                                 )
                                             })}
@@ -614,7 +973,7 @@ function App() {
                                 </div>
 
                                 <div className="receipt-help-box">
-                                    정산 방식: 총 지출 금액을 참여 인원수로 균등 분할(1/N)해 계산합니다.
+                                    정산 방식: 항목 등록 시 기본은 균등(비율 1)으로 생성되고, 항목별 분배 편집기에서 고정/비율/제외를 조정합니다.
                                 </div>
 
                                 <div className="receipt-meta">
@@ -626,6 +985,34 @@ function App() {
                                         <span>총 지출 금액</span>
                                         <strong>{formatAmount(totalSpent)}원</strong>
                                     </p>
+                                </div>
+
+                                <div className="receipt-balance-list">
+                                    <div className="receipt-balance-head">
+                                        <span>이름</span>
+                                        <span>실제 결제</span>
+                                        <span>최종 부담</span>
+                                        <span>차액</span>
+                                    </div>
+                                    {participantSettlementSummary.map((row) => (
+                                        <div key={row.id} className="receipt-balance-row">
+                                            <span>{row.name}</span>
+                                            <span>{formatAmount(Math.round(row.paid))}원</span>
+                                            <span>{formatAmount(Math.round(row.burden))}원</span>
+                                            <span
+                                                className={
+                                                    row.diff > 0
+                                                        ? 'is-positive'
+                                                        : row.diff < 0
+                                                            ? 'is-negative'
+                                                            : ''
+                                                }
+                                            >
+                                                {row.diff > 0 ? '+' : row.diff < 0 ? '-' : ''}
+                                                {formatAmount(Math.round(Math.abs(row.diff)))}원
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
 
                                 <div className="receipt-expense-list">
@@ -673,6 +1060,27 @@ function App() {
                                                 </div>
                                             )
                                         })
+                                    )}
+                                </div>
+
+                                <div className="receipt-rule-list">
+                                    <div className="receipt-rule-head">
+                                        <span>항목</span>
+                                        <span>제외</span>
+                                        <span>고정</span>
+                                        <span>{allocationInputMode === 'percent' ? '퍼센트' : '비율'}</span>
+                                    </div>
+                                    {expenseRuleSummaryRows.length === 0 ? (
+                                        <p className="empty-message receipt-empty-message">분배 설정 내역이 없습니다.</p>
+                                    ) : (
+                                        expenseRuleSummaryRows.map((row) => (
+                                            <div key={row.id} className="receipt-rule-row">
+                                                <span>{row.source}</span>
+                                                <span>{row.excludedText}</span>
+                                                <span>{row.fixedText}</span>
+                                                <span>{row.ratioText}</span>
+                                            </div>
+                                        ))
                                     )}
                                 </div>
 
