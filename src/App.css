@@ -1261,8 +1261,8 @@
     }
 
     .receipt-help-toggle {
-        top: 10px;
-        right: 10px;
+        top: -42px;
+        right: 0px;
         width: 36px;
         height: 36px;
     }

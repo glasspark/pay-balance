@@ -524,14 +524,12 @@ function App() {
     }
 
     const goToStep3 = () => {
-        if (!canProceedStep2) return
         setCurrentStep(3)
     }
 
     const settlementContext = buildSettlementContext()
     const settlements = buildSettlements()
     const totalSpent = settlementContext.totalSpent
-    const canProceedStep2 = expenseList.length > 0
     const step2BlockingMessage = (settlementContext.validationError.includes('분배 합계가 항목 금액과 다릅니다.')
         || settlementContext.validationError.includes('분배 합계가 항목 금액과 일치하지 않습니다.'))
         ? '분배 합계가 맞지 않는 항목이 있습니다. 각 항목의 분배 합계를 확인해주세요.'
@@ -908,8 +906,7 @@ function App() {
                             <button
                                 type="button"
                                 className="btn btn-secondary"
-                                onClick={goToStep3}
-                                disabled={!canProceedStep2}>
+                                onClick={goToStep3}>
                                 다음
                             </button>
                         </div>
