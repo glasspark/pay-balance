@@ -69,8 +69,8 @@ function App() {
     // 첫 렌더부터 입력창이 2개
     // Step1에서 사용자가 직접 입력 중인 참여자 이름 입력창 상태
     const [participantInputs, setParticipantInputs] = useState<ParticipantInput[]>([
-        {id: crypto.randomUUID(), name: '흰둥이'},
-        {id: crypto.randomUUID(), name: '가나디'},
+        {id: crypto.randomUUID(), name: ''},
+        {id: crypto.randomUUID(), name: ''},
     ])
     // Step1 입력 완료 후 Step2/Step3에서 사용할 확정 참여자 데이터
     const [participants, setParticipants] = useState<Participant[]>([])
@@ -124,7 +124,7 @@ function App() {
             return {id, raw, floor: Math.floor(raw), fraction: raw - Math.floor(raw)}
         })
         const floorTotal = rawShares.reduce((sum, share) => sum + share.floor, 0)
-        let leftover = remaining - floorTotal
+        const leftover = remaining - floorTotal
         const sorted = [...rawShares].sort((a, b) => b.fraction - a.fraction)
         const extraById: Record<string, number> = {}
         sorted.forEach((share) => {
@@ -531,8 +531,9 @@ function App() {
     const settlementContext = buildSettlementContext()
     const settlements = buildSettlements()
     const totalSpent = settlementContext.totalSpent
-    const canProceedStep2 = expenseList.length > 0 && !settlementContext.validationError
-    const step2BlockingMessage = settlementContext.validationError.includes('분배 합계가 항목 금액과 다릅니다.')
+    const canProceedStep2 = expenseList.length > 0
+    const step2BlockingMessage = (settlementContext.validationError.includes('분배 합계가 항목 금액과 다릅니다.')
+        || settlementContext.validationError.includes('분배 합계가 항목 금액과 일치하지 않습니다.'))
         ? '분배 합계가 맞지 않는 항목이 있습니다. 각 항목의 분배 합계를 확인해주세요.'
         : settlementContext.validationError
     const participantTotals = participants.map((participant) => {
@@ -786,10 +787,12 @@ function App() {
                                                                 <ul>
                                                                     {participants.map((targetParticipant) => (
                                                                         <li key={`${item.id}-${targetParticipant.id}`}>
-                                                                            <span>{targetParticipant.name}
+                                                                            <span>
                                                                                 {targetParticipant.id === item.participantId ? (
                                                                                     <em className="payer-badge">결제자</em>
-                                                                                ) : null}</span>
+                                                                                ) : null}
+                                                                                {targetParticipant.name}
+                                                                            </span>
                                                                             <label
                                                                                 className="allocation-cell exclude-cell">
                                                                                 <small>제외</small>
