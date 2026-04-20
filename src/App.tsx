@@ -784,7 +784,13 @@ function App() {
                                                             <div className="expense-allocation-editor">
                                                                 <p>항목 분배 보정 (고정금액 선반영 + 잔액 비율분배 + 제외)</p>
                                                                 <ul>
-                                                                    {participants.map((targetParticipant) => (
+                                                                    {[...participants]
+                                                                        .sort((a, b) => {
+                                                                            if (a.id === item.participantId) return -1
+                                                                            if (b.id === item.participantId) return 1
+                                                                            return 0
+                                                                        })
+                                                                        .map((targetParticipant) => (
                                                                         <li key={`${item.id}-${targetParticipant.id}`}>
                                                                             <span>
                                                                                 {targetParticipant.name}
