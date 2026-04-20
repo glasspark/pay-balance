@@ -1,75 +1,87 @@
-# React + TypeScript + Vite
+# PayBalance
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+모임 정산을 빠르게 끝내기 위한 3-Step 정산 웹 앱입니다.  
+참여자 등록부터 항목별 지출 입력, 최종 송금 결과(영수증 형태)까지 한 화면 플로우로 제공합니다.
 
-Currently, two official plugins are available:
+## 프로젝트 개요
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **목표**: 복잡한 모임 정산 과정을 직관적인 단계형 UI로 단순화
+- **흐름**
+  * Step1: 참여자 추가
+  * Step2: 지출 항목 등록 + 항목별 분배 보정
+  * Step3: 최종 정산 결과 및 계산 로직 확인
 
-## React Compiler
+## 주요 기능
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- 참여자 동적 추가/삭제 (최소 2명 기준)
+- 사람별 지출 등록 (사용처 + 금액)
+- 항목별 분배 편집
+  - 제외
+  - 고정 금액
+  - 비율
+- 최종 정산 송금 관계 자동 계산
+- 결과를 영수증(Receipt) UI로 시각화
+- 계산 방식 설명 팝오버(`?`) 제공
+- 모바일 반응형 대응 (Step UI / 정산 편집 영역 포함)
 
-Note: This will impact Vite dev & build performances.
+## 기술 스택
 
-## Expanding the ESLint configuration
+- **Frontend**: React 19, TypeScript
+- **Build Tool**: Vite
+- **Lint**: ESLint
+- **Deployment**: GitHub Pages + GitHub Actions (현재 비활성화)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 구현 포인트
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- 상태 기반 Step 전환 구조 (`currentStep`)
+- 항목 단위 분배 데이터 모델링
+  - `allocations`
+  - `allocationFixedByParticipantId`
+  - `allocationRatioByParticipantId`
+  - `excludedParticipantIds`
+- 분배 검증 및 정산 컨텍스트 생성
+  - 개인별 실제 결제 금액
+  - 개인별 목표 부담 금액
+  - 차액 기반 송금 매칭
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 실행 방법
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 빌드
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+## 배포
+
+- GitHub Actions 워크플로우: `.github/workflows/deploy.yml`
+- Vite base 설정: `base: '/pay-balance/'`
+- 배포 주소: [https://glasspark.github.io/pay-balance/](https://glasspark.github.io/pay-balance/)
+
+## 디렉터리 구조
+
+```text
+.
+├─ src/
+│  ├─ App.tsx
+│  ├─ App.css
+│  └─ assets/
+├─ public/
+├─ .github/
+│  └─ workflows/
+│     └─ deploy.yml
+└─ vite.config.ts
+```
+
+## 향후 개선 아이디어
+
+- 정산 규칙 프리셋(균등/비율/고정) 저장
+- 결과 공유 기능 고도화 (이미지/링크)
+- 입력 유효성/예외처리 UX 개선
+- 테스트 코드 도입 (계산 로직 단위 테스트)
+
