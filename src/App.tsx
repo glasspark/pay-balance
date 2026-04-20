@@ -114,11 +114,13 @@ function App() {
         })
 
         const remaining = Math.max(0, Math.round(amount) - fixedTotal)
-        const variableIds = eligibleIds.filter((id) => (fixedByParticipantId[id] ?? 0) <= 0)
-        if (remaining <= 0 || variableIds.length === 0) return allocations
+        // 고정 금액을 먼저 반영한 뒤, 남은 금액은 "제외되지 않은 전체 인원"의 비율로 다시 분배한다.
+        // 즉 같은 사람에게도 고정 + 비율이 동시에 적용될 수 있다.
+        const ratioIds = eligibleIds
+        if (remaining <= 0 || ratioIds.length === 0) return allocations
 
-        const totalRatio = variableIds.reduce((sum, id) => sum + Math.max(1, ratioByParticipantId[id] ?? 1), 0)
-        const rawShares = variableIds.map((id) => {
+        const totalRatio = ratioIds.reduce((sum, id) => sum + Math.max(1, ratioByParticipantId[id] ?? 1), 0)
+        const rawShares = ratioIds.map((id) => {
             const ratio = Math.max(1, ratioByParticipantId[id] ?? 1)
             const raw = remaining * (ratio / totalRatio)
             return {id, raw, floor: Math.floor(raw), fraction: raw - Math.floor(raw)}
@@ -565,7 +567,6 @@ function App() {
 
         const ratioEntries = participants
             .filter((participant) => !expense.excludedParticipantIds.includes(participant.id))
-            .filter((participant) => (expense.allocationFixedByParticipantId[participant.id] ?? 0) <= 0)
             .map((participant) => ({
                 name: participant.name,
                 value: expense.allocationRatioByParticipantId[participant.id] ?? (allocationInputMode === 'percent' ? 0 : 1),
@@ -781,7 +782,7 @@ function App() {
                                                         </div>
                                                         {openExpenseEditorId === item.id ? (
                                                             <div className="expense-allocation-editor">
-                                                                <p>항목 분배 보정 (사람별 고정/비율/제외)</p>
+                                                                <p>항목 분배 보정 (고정금액 선반영 + 잔액 비율분배 + 제외)</p>
                                                                 <ul>
                                                                     {participants.map((targetParticipant) => (
                                                                         <li key={`${item.id}-${targetParticipant.id}`}>
