@@ -1206,7 +1206,7 @@
     .expense-allocation-editor li > :nth-child(1) {
         grid-area: payer;
         display: flex;
-        flex-direction: column;
+        flex-direction: column-reverse;
         align-items: flex-start;
         gap: 4px;
     }

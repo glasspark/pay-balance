@@ -613,7 +613,7 @@ function App() {
             </header>
 
             <section className="hero-section">
-                <h1 className="step-kicker">PayBalance</h1>
+                <h1 className="step-kicker">PayBalance</h1> 
                 <h2 className="step-title">모임 정산이 늘 헷갈리셨나요?</h2>
                 <p className="step-description">
                     누군가는 더 냈고, 누군가는 덜 냈지만 계산은 늘 복잡합니다.
@@ -786,10 +786,10 @@ function App() {
                                                                     {participants.map((targetParticipant) => (
                                                                         <li key={`${item.id}-${targetParticipant.id}`}>
                                                                             <span>
+                                                                                {targetParticipant.name}
                                                                                 {targetParticipant.id === item.participantId ? (
                                                                                     <em className="payer-badge">결제자</em>
                                                                                 ) : null}
-                                                                                {targetParticipant.name}
                                                                             </span>
                                                                             <label
                                                                                 className="allocation-cell exclude-cell">
