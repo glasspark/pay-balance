@@ -13,13 +13,17 @@
 
 ## 주요 기능
 
-#### STEP1 참여자 동적 추가/삭제 (최소 2명 기준)
-<img width="1221" height="960" alt="image" src="https://github.com/user-attachments/assets/2a9f5202-51e2-448f-9cd4-6a260411287f" />   
+### STEP1 참여자 동적 추가/삭제 (최소 2명 기준)
+<img width="1221" height="960" alt="image" src="https://github.com/user-attachments/assets/2a9f5202-51e2-448f-9cd4-6a260411287f" />  
 
-#### STEP2 사람별 지출 등록 (사용처 + 금액)   
-<img width="1184" height="1087" alt="image" src="https://github.com/user-attachments/assets/99de8502-2d9f-4003-b717-2fb22f4f4d74" />   
+참여자는 기본 2명이며 최대 20명까지 등록이 가능합니다.  
 
-<img width="1176" height="767" alt="image" src="https://github.com/user-attachments/assets/d917e84b-4188-4743-ae4e-ea6025c5d9b9" />
+### STEP2 사람별 지출 등록 (사용처 + 금액)   
+<img width="1184" height="1087" alt="image" src="https://github.com/user-attachments/assets/99de8502-2d9f-4003-b717-2fb22f4f4d74" /> 
+
+STEP2에서는 STEP1에서 등록한 사람들의 목록이 표시되며, 각 사람 오른쪽의 + 아이콘을 누르면 해당 인원의 지출 금액을 입력할 수 있는 창이 나타납니다.
+ 
+<img width="1176" height="767" alt="image" src="https://github.com/user-attachments/assets/d917e84b-4188-4743-ae4e-ea6025c5d9b9" />  
 - 항목별 분배 편집
   - 제외
   - <img width="1118" height="312" alt="image" src="https://github.com/user-attachments/assets/aa6881ca-6801-4dbb-9ce2-877c85f859d3" />
@@ -28,7 +32,7 @@
   - 비율
   - <img width="1122" height="324" alt="image" src="https://github.com/user-attachments/assets/14050c5a-6818-48bd-b483-f249ce2fd3f4" />
 
-#### STEP3 최종 정산 송금 관계 자동 계산
+### STEP3 최종 정산 송금 관계 자동 계산
 <img width="1204" height="1079" alt="image" src="https://github.com/user-attachments/assets/70ff3297-8ff1-48e2-a0f5-45b356b6871e" />
 <img width="1202" height="987" alt="image" src="https://github.com/user-attachments/assets/862d3de3-6142-48bf-a852-e1aa3ae258cd" />
 
@@ -73,7 +77,7 @@ npm run build
 
 - GitHub Actions 워크플로우: `.github/workflows/deploy.yml`
 - Vite base 설정: `base: '/pay-balance/'`
-- 배포 주소: [https://glasspark.github.io/pay-balance/](https://glasspark.github.io/pay-balance/) [현재 비활성화]
+- 배포 주소: ~~[https://glasspark.github.io/pay-balance/]~~ [현재 비활성화]
 
 ## 디렉터리 구조
 
